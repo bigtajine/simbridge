@@ -39,9 +39,10 @@ export class McduKeyboardEvents {
       return fn <= 6 ? `L${fn}` : `R${fn - 6}`;
     }
 
-    // match a-z
-    if (keyEvent.code.match(/Key[A-Z]/)) {
-      return keyEvent.code.replace('Key', '').toLocaleUpperCase();
+    // match a-z; use keyEvent.key (respects the active keyboard layout, e.g. QWERTZ)
+    // instead of keyEvent.code (physical key position) to avoid letters like Y/Z being swapped
+    if (keyEvent.code.match(/Key[A-Z]/) && /^[a-zA-Z]$/.test(keyEvent.key)) {
+      return keyEvent.key.toLocaleUpperCase();
     }
 
     // match 0-9
