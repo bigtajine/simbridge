@@ -628,19 +628,27 @@ export class NavigationDisplayRenderer {
       return;
     }
 
-    const elevationMap = this.maphandler.createLocalElevationMap(this.configuration);
-    const histogram = this.createElevationHistogram(elevationMap);
-    const cutOffAltitude = this.calculateAbsoluteCutOffAltitude();
+    let cutOffAltitude: number;
+    try {
+      const elevationMap = this.maphandler.createLocalElevationMap(this.configuration);
+      const histogram = this.createElevationHistogram(elevationMap);
+      cutOffAltitude = this.calculateAbsoluteCutOffAltitude();
 
-    // create the final map
-    const renderingData = this.createNavigationDisplayMap(elevationMap, histogram, cutOffAltitude);
-    if (renderingData === null) return;
+      // create the final map
+      const renderingData = this.createNavigationDisplayMap(elevationMap, histogram, cutOffAltitude);
+      if (renderingData === null) return;
 
-    const frame = renderingData as number[][];
-    const metadata = frame.splice(frame.length - 1)[0];
+      const frame = renderingData as number[][];
+      const metadata = frame.splice(frame.length - 1)[0];
 
-    this.renderingData.finalFrame = new Uint8ClampedArray(fastFlatten(frame));
-    this.renderingData.thresholdData = this.analyzeMetadata(metadata, cutOffAltitude);
+      this.renderingData.finalFrame = new Uint8ClampedArray(fastFlatten(frame));
+      this.renderingData.thresholdData = this.analyzeMetadata(metadata, cutOffAltitude);
+    } catch (err) {
+      // GPU.js kernel creation/execution can throw (e.g. shader compile failure - see
+      // issues #82/#83). Skip this map cycle instead of crashing the terrain worker thread.
+      this.logging.error(`Navigation display map cycle failed, skipping: ${err}`);
+      return;
+    }
 
     if (!this.configuration.terrOnNd) {
       // metadata is used in the TERRONND WASM module to detect frame changes, so we still have to send it even though ND TERR would be disabled on the A380X
@@ -683,14 +691,26 @@ export class NavigationDisplayRenderer {
   public render(): boolean {
     let renderingDone = false;
 
-    // eslint-disable-next-line no-bitwise
-    if (
-      (this.aircraftStatus.navigationDisplayRenderingMode & TerrainRenderingMode.ScanlineMode) ===
-      TerrainRenderingMode.ScanlineMode
-    ) {
-      renderingDone = this.scanlineModeTransition();
-    } else {
-      renderingDone = this.arcModeTransition();
+    try {
+      // eslint-disable-next-line no-bitwise
+      if (
+        (this.aircraftStatus.navigationDisplayRenderingMode & TerrainRenderingMode.ScanlineMode) ===
+        TerrainRenderingMode.ScanlineMode
+      ) {
+        renderingDone = this.scanlineModeTransition();
+      } else {
+        renderingDone = this.arcModeTransition();
+      }
+    } catch (err) {
+      // GPU.js kernel creation/execution (e.g. a shader compile failure from a flaky GPU
+      // driver, or a transient context loss) can throw here. Left unguarded, this throws
+      // inside a setInterval callback in the terrain worker thread, which - since nothing
+      // else catches it - kills the whole worker thread and, without an 'error' handler on
+      // the Worker in terrain.service.ts, can crash the entire SimBridge process (issue #82).
+      // Log and skip this frame instead of taking the whole app down; the next rendering
+      // cycle gets a fresh chance to succeed rather than the app dying outright (issue #83).
+      this.logging.error(`Navigation display rendering failed, skipping frame: ${err}`);
+      renderingDone = true;
     }
 
     return renderingDone;

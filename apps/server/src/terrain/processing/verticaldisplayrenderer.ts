@@ -162,28 +162,35 @@ export class VerticalDisplayRenderer {
     this.displayConfig.mapWidth = RenderingElevationProfileWidth;
     this.displayConfig.mapHeight = RenderingElevationProfileHeight;
 
-    const profile = this.maphandler.createElevationProfile(this.elevationConfig, RenderingElevationProfileWidth);
-    if (profile === null) return;
+    try {
+      const profile = this.maphandler.createElevationProfile(this.elevationConfig, RenderingElevationProfileWidth);
+      if (profile === null) return;
 
-    const greyAreaStartsAtX =
-      this.elevationConfig.trackChangesSignificantlyAtDistance >= 0 && this.elevationConfig.fmsPathUsed
-        ? verticalDisplayDistanceToPixelX(
-            this.elevationConfig.trackChangesSignificantlyAtDistance,
-            this.elevationConfig.range,
-          )
-        : -1;
+      const greyAreaStartsAtX =
+        this.elevationConfig.trackChangesSignificantlyAtDistance >= 0 && this.elevationConfig.fmsPathUsed
+          ? verticalDisplayDistanceToPixelX(
+              this.elevationConfig.trackChangesSignificantlyAtDistance,
+              this.elevationConfig.range,
+            )
+          : -1;
 
-    const verticaldisplay = this.renderer(
-      profile,
-      this.displayConfig.minimumAltitude,
-      this.displayConfig.maximumAltitude,
-      greyAreaStartsAtX,
-    ) as number[][];
+      const verticaldisplay = this.renderer(
+        profile,
+        this.displayConfig.minimumAltitude,
+        this.displayConfig.maximumAltitude,
+        greyAreaStartsAtX,
+      ) as number[][];
 
-    // some GPU drivers require the flush call to release internal memory
-    if (GpuProcessingActive) this.renderer.context.flush();
+      // some GPU drivers require the flush call to release internal memory
+      if (GpuProcessingActive) this.renderer.context.flush();
 
-    this.renderingData.finalFrame = new Uint8ClampedArray(fastFlatten(verticaldisplay));
+      this.renderingData.finalFrame = new Uint8ClampedArray(fastFlatten(verticaldisplay));
+    } catch (err) {
+      // GPU.js kernel creation/execution can throw (e.g. shader compile failure - see
+      // issues #82/#83). Skip this map cycle instead of crashing the terrain worker thread.
+      this.logging.error(`Vertical display map cycle failed, skipping: ${err}`);
+      return;
+    }
 
     if (this.renderingData.lastFrame === null) {
       const timeSinceStart = currentTime - this.startupTime;
@@ -229,35 +236,41 @@ export class VerticalDisplayRenderer {
   }
 
   public render(): boolean {
-    // nothing to do here
-    if (this.renderingData.finalFrame === null) return true;
+    try {
+      // nothing to do here
+      if (this.renderingData.finalFrame === null) return true;
 
-    const horizontalStep = Math.round(
-      (RenderingElevationProfileWidth / RenderingMapTransitionDurationScanlineMode) * RenderingMapTransitionDeltaTime,
-    );
-    this.renderingData.currentTransitionBorder += horizontalStep;
-
-    if (this.renderingData.currentTransitionBorder < RenderingElevationProfileWidth) {
-      this.renderingData.currentFrame = this.transitionFrame(
-        this.renderingData.lastFrame,
-        this.renderingData.finalFrame,
+      const horizontalStep = Math.round(
+        (RenderingElevationProfileWidth / RenderingMapTransitionDurationScanlineMode) * RenderingMapTransitionDeltaTime,
       );
+      this.renderingData.currentTransitionBorder += horizontalStep;
 
-      return false;
+      if (this.renderingData.currentTransitionBorder < RenderingElevationProfileWidth) {
+        this.renderingData.currentFrame = this.transitionFrame(
+          this.renderingData.lastFrame,
+          this.renderingData.finalFrame,
+        );
+
+        return false;
+      }
+
+      // perform the last frame
+      if (this.renderingData.currentTransitionBorder + horizontalStep > RenderingElevationProfileWidth) {
+        this.renderingData.currentFrame = this.transitionFrame(
+          this.renderingData.lastFrame,
+          this.renderingData.finalFrame,
+        );
+      }
+
+      // do not overwrite the last frame of the initialization
+      this.renderingData.lastFrame = this.renderingData.currentFrame;
+
+      return true;
+    } catch (err) {
+      // see navigationdisplayrenderer.ts render() for why this guard exists (issues #82/#83)
+      this.logging.error(`Vertical display rendering failed, skipping frame: ${err}`);
+      return true;
     }
-
-    // perform the last frame
-    if (this.renderingData.currentTransitionBorder + horizontalStep > RenderingElevationProfileWidth) {
-      this.renderingData.currentFrame = this.transitionFrame(
-        this.renderingData.lastFrame,
-        this.renderingData.finalFrame,
-      );
-    }
-
-    // do not overwrite the last frame of the initialization
-    this.renderingData.lastFrame = this.renderingData.currentFrame;
-
-    return true;
   }
 
   public displayConfiguration(): VerticalDisplay {
