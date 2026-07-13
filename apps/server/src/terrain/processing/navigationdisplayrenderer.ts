@@ -89,6 +89,13 @@ export class NavigationDisplayRenderer {
 
   private aircraftStatus: AircraftStatus = null;
 
+  // Per-pixel angle (degrees) from the display's bottom-center, used by the arc-mode sweep
+  // transition. This only depends on mapWidth/mapHeight, which change rarely (display config
+  // changes), so it is computed once and reused instead of recomputing sqrt/acos for every
+  // pixel on every 40ms transition frame - that recompute was a significant, avoidable CPU
+  // cost (up to ~370k trig calls per frame) that could contend with MSFS for CPU time.
+  private angleMapCache: { width: number; height: number; angles: Float32Array } | null = null;
+
   private renderingData: {
     startTransitionBorder: number;
     currentTransitionBorder: number;
@@ -439,6 +446,27 @@ export class NavigationDisplayRenderer {
     return terrainmap;
   }
 
+  private getAngleMap(): Float32Array {
+    const { mapWidth: width, mapHeight: height } = this.configuration;
+
+    if (this.angleMapCache !== null && this.angleMapCache.width === width && this.angleMapCache.height === height) {
+      return this.angleMapCache.angles;
+    }
+
+    const angles = new Float32Array(width * height);
+    let arrayIndex = 0;
+    for (let y = 0; y < height; ++y) {
+      for (let x = 0; x < width; ++x) {
+        const distance = Math.sqrt((x - width / 2) ** 2 + (height - y) ** 2);
+        angles[arrayIndex] = distance === 0 ? 0 : Math.acos((height - y) / distance) * (180.0 / Math.PI);
+        arrayIndex++;
+      }
+    }
+
+    this.angleMapCache = { width, height, angles };
+    return angles;
+  }
+
   private arcModeTransitionFrame(
     oldFrame: Uint8ClampedArray,
     newFrame: Uint8ClampedArray,
@@ -457,22 +485,15 @@ export class NavigationDisplayRenderer {
     destination.fill(328708);
     const oldSource = oldFrame !== null ? new Uint32Array(oldFrame.buffer) : null;
     const newSource = new Uint32Array(newFrame.buffer);
+    const angleMap = this.getAngleMap();
 
-    let arrayIndex = 0;
-    for (let y = 0; y < this.configuration.mapHeight; ++y) {
-      for (let x = 0; x < this.configuration.mapWidth; ++x) {
-        const distance = Math.sqrt(
-          (x - this.configuration.mapWidth / 2) ** 2 + (this.configuration.mapHeight - y) ** 2,
-        );
-        const angle = Math.acos((this.configuration.mapHeight - y) / distance) * (180.0 / Math.PI);
+    for (let arrayIndex = 0; arrayIndex < angleMap.length; ++arrayIndex) {
+      const angle = angleMap[arrayIndex];
 
-        if (startAngle <= angle && angle <= endAngle) {
-          destination[arrayIndex] = newSource[arrayIndex];
-        } else if (oldSource !== null) {
-          destination[arrayIndex] = oldSource[arrayIndex];
-        }
-
-        arrayIndex++;
+      if (startAngle <= angle && angle <= endAngle) {
+        destination[arrayIndex] = newSource[arrayIndex];
+      } else if (oldSource !== null) {
+        destination[arrayIndex] = oldSource[arrayIndex];
       }
     }
 
