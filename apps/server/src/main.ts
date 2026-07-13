@@ -6,7 +6,7 @@ import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { WsAdapter } from '@nestjs/platform-ws';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
-import { platform } from 'os';
+import { platform, setPriority, constants as osConstants } from 'os';
 import { hideConsole } from 'node-hide-console-window';
 import * as path from 'path';
 import { getSimbridgeDir } from 'apps/server/src/utilities/pathUtil';
@@ -20,12 +20,31 @@ declare const module: any;
 const dirs = ['resources/logs', 'resources/coroutes', 'resources/pdfs', 'resources/images'];
 
 async function bootstrap() {
+  // Terrain rendering bursts (headless GPU render + PNG encode every 40ms during a
+  // transition cycle) can starve MSFS of CPU/GPU driver time on the same core and cause
+  // stutter. Running SimBridge below-normal priority makes the OS scheduler favor MSFS
+  // whenever both processes want the CPU at the same instant.
+  if (platform() === 'win32') {
+    try {
+      setPriority(osConstants.priority.PRIORITY_BELOW_NORMAL);
+    } catch {
+      // best-effort; not fatal if the OS denies the priority change
+    }
+  }
+
   const app = await NestFactory.create<NestExpressApplication>(AppModule, { bufferLogs: true, cors: true });
 
   app.enableShutdownHooks();
 
   // Shutdown listener
-  app.get(ShutDownService).subscribeToShutdown(() => app.close());
+  app.get(ShutDownService).subscribeToShutdown(async () => {
+    await app.close();
+    // app.close() only tears down Nest providers/listeners; it does not guarantee the Node
+    // process exits (open handles from GPU.js kernels, worker threads, the systray child
+    // process, or mDNS sockets can keep the event loop alive). Force-terminate so "Exit" in
+    // the tray reliably kills the process instead of leaving a blank/zombie tray item behind.
+    process.exit(0);
+  });
 
   // Gateway Adapter
   app.useWebSocketAdapter(new WsAdapter(app));
