@@ -19,9 +19,6 @@ export class CoRouteDto {
   @IsDefined()
   destination: Airport;
 
-  // Not every company route has an alternate defined - previously this was required, so any
-  // route without one failed validation with "nested property alternate must be either object
-  // or array" and could not be loaded at all (issue #112). Make it optional instead.
   @ApiProperty({ description: 'The alternate airport dto', required: false })
   @ValidateNested()
   @IsOptional()
