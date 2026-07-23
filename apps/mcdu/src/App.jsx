@@ -97,8 +97,8 @@ const App = () => {
         // once, when this browser tab's own websocket first reaches OPEN (see the effect
         // above) - if the simulator connects/reconnects *after* that (e.g. SimBridge started
         // before MSFS, or the sim add-on reloaded), that one-shot request was broadcast to
-        // nobody and is never retried, so the MCDU screen just stays blank forever (issue
-        // #147). Re-request the current state whenever we see the simulator (re)join.
+        // nobody and is never retried, so the MCDU screen just stays blank forever.
+        // Re-request the current state whenever we see the simulator (re)join.
         sendMessage('requestUpdate');
       } else if (lastMessage.data === 'mcduDisconnected') {
         // simulator has disconnected - clear the last known screen instead of showing stale data
