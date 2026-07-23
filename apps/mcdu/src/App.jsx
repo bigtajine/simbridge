@@ -93,7 +93,6 @@ const App = () => {
       if (messageType === 'update') {
         setContent(JSON.parse(lastMessage.data.substring(lastMessage.data.indexOf(':') + 1)).left);
       } else if (lastMessage.data === 'mcduDisconnected') {
-        // simulator has disconnected - clear the last known screen instead of showing stale data
         setContent((previous) => ({
           ...previous,
           lines: previous.lines.map((line) => line.map(() => '')),
