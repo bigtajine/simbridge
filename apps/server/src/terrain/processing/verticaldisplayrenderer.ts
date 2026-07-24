@@ -190,8 +190,8 @@ export class VerticalDisplayRenderer {
 
       this.renderingData.finalFrame = new Uint8ClampedArray(fastFlatten(verticaldisplay));
     } catch (err) {
-      // GPU.js kernel creation/execution can throw (e.g. shader compile failure - see
-      // issues #82/#83). Skip this map cycle instead of crashing the terrain worker thread.
+      // GPU.js kernel creation/execution can throw (e.g. shader compile failure).
+      // Skip this map cycle instead of crashing the terrain worker thread.
       this.logging.error(`Vertical display map cycle failed, skipping: ${err}`);
       return;
     }
