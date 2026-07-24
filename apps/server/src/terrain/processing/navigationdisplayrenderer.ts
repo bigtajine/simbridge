@@ -644,8 +644,8 @@ export class NavigationDisplayRenderer {
       this.renderingData.finalFrame = new Uint8ClampedArray(fastFlatten(frame));
       this.renderingData.thresholdData = this.analyzeMetadata(metadata, cutOffAltitude);
     } catch (err) {
-      // GPU.js kernel creation/execution can throw (e.g. shader compile failure - see
-      // issues #82/#83). Skip this map cycle instead of crashing the terrain worker thread.
+      // GPU.js kernel creation/execution can throw (e.g. shader compile failure).
+      // Skip this map cycle instead of crashing the terrain worker thread.
       this.logging.error(`Navigation display map cycle failed, skipping: ${err}`);
       return;
     }
