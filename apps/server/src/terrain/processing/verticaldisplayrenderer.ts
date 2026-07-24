@@ -242,7 +242,9 @@ export class VerticalDisplayRenderer {
   public render(): boolean {
     try {
       // nothing to do here
-      if (this.renderingData.finalFrame === null) return true;
+      if (this.renderingData.finalFrame === null) {
+        return true;
+      }
 
       const horizontalStep = Math.round(
         (RenderingElevationProfileWidth / RenderingMapTransitionDurationScanlineMode) * RenderingMapTransitionDeltaTime,
