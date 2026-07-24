@@ -267,13 +267,14 @@ export class VerticalDisplayRenderer {
           this.renderingData.finalFrame,
         );
       }
-
-      // do not overwrite the last frame of the initialization
+      
+      // Use the completed frame as the baseline for the next transition.
       this.renderingData.lastFrame = this.renderingData.currentFrame;
-
+      
       return true;
+        
     } catch (err) {
-      // see navigationdisplayrenderer.ts render() for why this guard exists (issues #82/#83)
+      // Skip this failed frame and continue on the next render cycle.
       this.logging.error(`Vertical display rendering failed, skipping frame: ${err}`);
       return true;
     }
