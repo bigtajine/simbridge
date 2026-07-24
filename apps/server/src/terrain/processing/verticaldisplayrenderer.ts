@@ -184,7 +184,9 @@ export class VerticalDisplayRenderer {
       ) as number[][];
 
       // some GPU drivers require the flush call to release internal memory
-      if (GpuProcessingActive) this.renderer.context.flush();
+      if (GpuProcessingActive) {
+        this.renderer.context.flush();
+      }
 
       this.renderingData.finalFrame = new Uint8ClampedArray(fastFlatten(verticaldisplay));
     } catch (err) {
