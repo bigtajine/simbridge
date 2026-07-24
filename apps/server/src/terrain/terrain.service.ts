@@ -103,7 +103,9 @@ export class TerrainService implements OnApplicationShutdown {
     const delayMs = Math.min(1000 * 2 ** (this.restartCount - 1), 30000);
     this.logger.warn(`Restarting terrain worker in ${delayMs}ms (attempt ${this.restartCount})`);
     setTimeout(() => {
-      if (!this.shuttingDown) this.spawnWorker();
+      if (!this.shuttingDown) {
+        this.spawnWorker();
+      }
     }, delayMs);
   }
 
