@@ -164,7 +164,9 @@ export class VerticalDisplayRenderer {
 
     try {
       const profile = this.maphandler.createElevationProfile(this.elevationConfig, RenderingElevationProfileWidth);
-      if (profile === null) return;
+      if (profile === null) {
+        return;
+      }
 
       const greyAreaStartsAtX =
         this.elevationConfig.trackChangesSignificantlyAtDistance >= 0 && this.elevationConfig.fmsPathUsed
