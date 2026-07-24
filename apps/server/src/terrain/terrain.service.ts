@@ -87,7 +87,9 @@ export class TerrainService implements OnApplicationShutdown {
   }
 
   private respawnAfterCrash(): void {
-    if (this.shuttingDown) return;
+    if (this.shuttingDown) {
+      return;
+    }
 
     this.frameDataCallbacks = [];
     this.terrainWorker = null;
