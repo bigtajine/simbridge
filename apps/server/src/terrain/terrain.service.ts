@@ -51,7 +51,9 @@ export class TerrainService implements OnApplicationShutdown {
     });
 
     worker.on('exit', (code) => {
-      if (this.shuttingDown) return;
+      if (this.shuttingDown) {
+        return;
+      }
       if (code !== 0) {
         this.logger.error(`Terrain worker exited unexpectedly with code ${code}`);
         this.respawnAfterCrash();
