@@ -39,12 +39,10 @@ export class TerrainService implements OnApplicationShutdown {
 
   private attachWorkerHandlers(worker: Worker): void {
     // Node.js Worker instances are EventEmitters: an uncaught exception inside the worker
-    // thread (e.g. a GPU.js shader compile failure - see issues #82/#83) is surfaced as an
-    // 'error' event. If no 'error' listener is attached, Node re-throws it on the MAIN
-    // thread, which crashes the entire SimBridge process (this is what issue #82 reports).
+    // thread is surfaced as an 'error' event. If no 'error' listener is attached, Node re-throws it
+    // on the MAIN thread, which crashes the entire SimBridge process.
     // Attaching a listener here prevents that crash; instead we log it and respawn the
-    // worker so terrain rendering recovers on its own instead of staying dead until the user
-    // notices and restarts SimBridge manually (issue #83).
+    // worker so terrain rendering recovers on its own.
     worker.on('error', (err) => {
       this.logger.error(`Terrain worker crashed: ${err?.stack ?? err}`);
       this.respawnAfterCrash();
