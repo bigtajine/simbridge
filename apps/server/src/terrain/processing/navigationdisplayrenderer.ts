@@ -702,13 +702,9 @@ export class NavigationDisplayRenderer {
         renderingDone = this.arcModeTransition();
       }
     } catch (err) {
-      // GPU.js kernel creation/execution (e.g. a shader compile failure from a flaky GPU
-      // driver, or a transient context loss) can throw here. Left unguarded, this throws
-      // inside a setInterval callback in the terrain worker thread, which - since nothing
-      // else catches it - kills the whole worker thread and, without an 'error' handler on
-      // the Worker in terrain.service.ts, can crash the entire SimBridge process (issue #82).
+      // GPU.js kernel creation/execution can throw (e.g. a shader compile failure).
       // Log and skip this frame instead of taking the whole app down; the next rendering
-      // cycle gets a fresh chance to succeed rather than the app dying outright (issue #83).
+      // cycle gets a fresh chance to succeed rather than the app dying outright.
       this.logging.error(`Navigation display rendering failed, skipping frame: ${err}`);
       renderingDone = true;
     }
