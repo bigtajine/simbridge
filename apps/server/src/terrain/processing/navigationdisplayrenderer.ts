@@ -89,11 +89,10 @@ export class NavigationDisplayRenderer {
 
   private aircraftStatus: AircraftStatus = null;
 
-  // Per-pixel angle (degrees) from the display's bottom-center, used by the arc-mode sweep
-  // transition. This only depends on mapWidth/mapHeight, which change rarely (display config
-  // changes), so it is computed once and reused instead of recomputing sqrt/acos for every
-  // pixel on every 40ms transition frame - that recompute was a significant, avoidable CPU
-  // cost (up to ~370k trig calls per frame) that could contend with MSFS for CPU time.
+  /**
+   * Cached per-pixel angles from the display's bottom-center, indexed by pixel.
+   * Rebuilt only when the display dimensions change.
+   */
   private angleMapCache: { width: number; height: number; angles: Float32Array } | null = null;
 
   private renderingData: {
@@ -453,6 +452,7 @@ export class NavigationDisplayRenderer {
       return this.angleMapCache.angles;
     }
 
+    // Compute the angle for every pixel once. The result depends only on the map dimensions, so it can be reused until the dimensions change.
     const angles = new Float32Array(width * height);
     let arrayIndex = 0;
     for (let y = 0; y < height; ++y) {
